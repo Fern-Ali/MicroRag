@@ -1,6 +1,7 @@
 import discord
 import os
 import requests  # To send POST requests to FastAPI
+from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from discord.ext import commands
 import time
@@ -202,17 +203,27 @@ async def summarize(ctx):
 @bot.command()
 async def function(ctx, *, user_query: str):
     prompt = f"""
-    Respond ONLY in JSON. Do not add notes, explanations, or any other text. Output strictly the JSON format. For example:
+    Respond ONLY in JSON. Do not add notes, explanations, or any other text. Output strictly the JSON format. 
+    Respond with ONLY ONE function argument pair. Provide the function argument pair only ONCE.
+    For example:
     User: Calculate the sum of 5 and 7.
     Assistant: {{"function": "calculate_sum", "arguments": {{"a": 5, "b": 7}}}}
-
+    User: What are the top trending Github repos?
+    Assistant: {{"function": "scrape_github_trending", "arguments": {{"since": "daily"}}}}
+    User: This week's trending top github repos?
+    Assistant: {{"function": "scrape_github_trending", "arguments": {{"since": "weekly"}}}}
+    User: What are the trending top Github repos for the month?
+    Assistant: {{"function": "scrape_github_trending", "arguments": {{"since": "monthly"}}}}
     Query: {user_query}
+
     """
     async with ctx.typing():
         response_text = await generate_with_api(prompt)
 
         # Parse and execute the function
         parsed_response = extract_json(response_text)
+        print("parsed responseo", parsed_response)
+        
         if "error" not in parsed_response:
             result = execute_function(parsed_response)
             await ctx.send(result)
@@ -223,20 +234,63 @@ async def function(ctx, *, user_query: str):
 # Example function map
 function_map = {
     "calculate_sum": lambda a, b: a + b,
+    "scrape_github_trending": lambda **kwargs: scrape_github_trending(**kwargs),
     # Add more functions as needed
 }
 
 def execute_function(parsed_response):
     try:
+        # If parsed_response is a list, grab the first function call
+        if isinstance(parsed_response, list) and len(parsed_response) > 0:
+            parsed_response = parsed_response[0]  # Take the first function call
+        
         function_name = parsed_response["function"]
         arguments = parsed_response["arguments"]
+        
         if function_name in function_map:
-            result = function_map[function_name](**arguments)
+            result = function_map[function_name](**arguments) if arguments else function_map[function_name]()
+            
+            if function_name == "scrape_github_trending":
+                if not result:
+                    return "No trending repositories found."
+
+                # Format the message for better readability
+                formatted_message = "**🚀 Trending GitHub Repositories:**\n\n"
+                for repo in result:
+                    repo_name = repo['name'].replace("\n", "").strip()
+                    formatted_message += (
+                        f"**[{repo_name}]({repo['url']})**\n"
+                        f"📌 *{repo['description']}*\n"
+                        f"🛠️ Language: `{repo['language']}`\n"
+                        f"⭐ Stars: `{repo['stars']}` | 🍴 Forks: `{repo['forks']}`\n\n"
+                    )
+                return formatted_message
+            
             return f"Result: {result}"
+        
         else:
             return f"Error: Function `{function_name}` not found."
     except Exception as e:
         return f"Error: {e}"
+
+
+# Helper: Extract JSON from the model's response
+def extract_json(response_text):
+    print("DEBUG: Raw response from model:\n", response_text)
+    try:
+        # Extract JSON after "Answer:"
+        if "Answer:" in response_text:
+            json_text = response_text.split("Answer:", 1)[1].strip()
+
+            # Check if multiple JSON objects exist
+            json_text = json_text.replace("}{", "},{")  # Fix improper object merging
+            json_text = f"[{json_text}]"  # Wrap it into a list
+
+            return json.loads(json_text)  # Convert to Python list
+        else:
+            return {"error": "No JSON found in response."}
+    except json.JSONDecodeError:
+        return {"error": "Invalid JSON format."}
 
 # Helper: Extract text from PDFs
 def extract_text_from_pdf(pdf_path):
@@ -249,17 +303,6 @@ def split_into_chunks(text, chunk_size=500):
     words = text.split()
     return [" ".join(words[i:i + chunk_size]) for i in range(0, len(words), chunk_size)]
 
-# Helper: Extract answer when generated as json function response
-def extract_json(response_text):
-    try:
-        # Extract JSON after "Answer:" keyword
-        if "Answer:" in response_text:
-            json_text = response_text.split("Answer:", 1)[1].strip()
-            return json.loads(json_text)  # Parse the JSON
-        else:
-            return {"error": "No JSON found in response."}
-    except json.JSONDecodeError:
-        return {"error": "Invalid JSON format."}
 
 # Helper: Extract answer after "Answer:" keyword
 def extract_answer(response_text):
@@ -271,6 +314,47 @@ def extract_answer(response_text):
             return "No answer found in the response."
     except Exception as e:
         return f"Error: {e}"
+# Scraping function that supports daily, weekly, or monthly trends
+def scrape_github_trending(since="daily"):
+    url = f"https://github.com/trending?since={since}"
+    headers = {"User-Agent": "Mozilla/5.0"}
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        repo_articles = soup.find_all("article", class_="Box-row")
+        trending_repos = []
+
+        for article in repo_articles[:5]:  # Limit to top 5 results
+            repo_name_tag = article.find("h2", class_="h3 lh-condensed").find("a")
+            repo_name = repo_name_tag.text.strip()
+            repo_url = "https://github.com" + repo_name_tag["href"]
+
+            repo_description_tag = article.find("p", class_="col-9 color-fg-muted my-1 pr-4")
+            repo_description = repo_description_tag.text.strip() if repo_description_tag else "No description provided."
+
+            language_tag = article.find("span", itemprop="programmingLanguage")
+            language = language_tag.text.strip() if language_tag else "Unknown"
+
+            stars_tag = article.find("a", href=lambda href: href and "stargazers" in href)
+            stars = stars_tag.text.strip() if stars_tag else "0"
+
+            forks_tag = article.find("a", href=lambda href: href and "forks" in href)
+            forks = forks_tag.text.strip() if forks_tag else "0"
+
+            trending_repos.append({
+                "name": repo_name,
+                "url": repo_url,
+                "description": repo_description,
+                "language": language,
+                "stars": stars,
+                "forks": forks,
+            })
+
+        return trending_repos
+    except Exception as e:
+        return f"Error occurred: {str(e)}"
 
 # Load environment variables and run the bot
 load_dotenv()

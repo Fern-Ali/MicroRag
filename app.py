@@ -50,7 +50,7 @@ class InferenceRequest(BaseModel):
 async def llama(prompt):         
     response = generator(
         prompt, 
-        max_length=300, 
+        max_length=400, 
         num_return_sequences=1,
         truncation=True
     )
@@ -93,7 +93,7 @@ async def generate(request: InferenceRequest):
         response = generator(
             prompt, 
             # max_length=request.max_length, 
-            max_new_tokens=200,  # Allow up to 200 tokens for the output
+            max_new_tokens=300,  # Allow up to 200 tokens for the output
             # max_new_tokens=request.max_length
             num_return_sequences=1
         )
