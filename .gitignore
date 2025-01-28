@@ -1,0 +1,68 @@
+ignore_me.py
+function_calling.py
+manhattan_distance.ipynb
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+*.egg-info/
+*.egg
+
+# FastAPI specific
+instance/
+*.db
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.virtualenv/
+
+# Environment Variables
+.env
+
+# Logs
+logs/
+*.log
+*.out
+*.err
+
+# Testing
+.coverage
+.cache
+pytest_cache/
+htmlcov/
+.tox/
+nosetests.xml
+coverage.xml
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# Compiled code
+*.so
+*.a
+*.dylib
+
+# Editor and IDE specific
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.orig
+
+# Operating System specific
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# PyCharm
+/.idea/
+
+# Local config files
+*.local
