@@ -7,6 +7,15 @@ MicroRag is a lightweight FastAPI-based system for inferencing Large Language Mo
 
 ---
 
+## 📌 Quick Links  
+🔹 [**Agent Kitty Commands**](#speech_balloon-agent-kitty-commands)  
+🔹 [**Agent Kitty Patch Notes**](#loudspeaker-agent-kitty-patch-notes)  
+🔹 [**Installation Guide**](#wrench-installation--setup)  
+🔹 [**Contribute & Feature Ideas**](#bulb-contribute)  
+🔹 [**License**](#books-license)  
+
+---
+
 ## :rocket: Features
 - **FastAPI Backend**:
   - Supports LLM inferencing with models like Llama 3.2.
@@ -62,17 +71,29 @@ python kitty_bot.py
 - **`!prompt [query]`**:
   Send a query to the MicroRag API and receive a concise answer.
   - Example: `!prompt What is FastAPI?`
-
+- **`!summarize`**:
+  Upload a `.txt` file to receive a concise summary (2000 chars max).
+  - Example: Upload a file with `!summarize`.
 - **`!function [query]`**:
   Dynamically execute Python functions via JSON requests.
   - Example: `!function What is 5 plus 7?`
   - Currently supports:
-    - `calculate_sum`: Adds two numbers.
-
-- **`!summarize`**:
-  Upload a `.txt` file to receive a concise summary (2000 chars max).
-  - Example: Upload a file with `!summarize`.
-
+    - 🆕 `calculate_sum` | Adds two numbers      
+      - **Example Queries:**
+        - `"Add 400 + 800"` → `Result: 1200`        
+    - 🆕 `scrape_github_trending` | Fetches the top trending repositories from GitHub.        
+      - Supports different time ranges:
+        - `"daily"` (default)
+        - `"weekly"`
+        - `"monthly"`
+      - **Example Queries:**
+        - `"What are today's trending GitHub repos?"` → `since: "daily"`
+        - `"Show me the trending GitHub repos for this week."` → `since: "weekly"`
+        - `"What are the top GitHub projects this month?"` → `since: "monthly"`
+### 🚀 Function calling in action:  
+```plaintext
+!function show me trending GitHub repos 
+```
 ---
 
 ## :loudspeaker: Agent Kitty Patch Notes
@@ -85,7 +106,9 @@ python kitty_bot.py
 
 2. **`!function` Added**:
    - Dynamically executes Python functions via JSON requests.
-   - Current Function: `calculate_sum` (Example: "What is 5 plus 7?")
+   - Available Functions:
+     - 🆕 `calculate_sum`
+     - 🆕 `scrape_github_trending`   
 
 3. **`!summarize` Added**:
    - Upload `.txt` files to get summaries of up to 2000 characters.
