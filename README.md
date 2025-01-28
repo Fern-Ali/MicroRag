@@ -119,7 +119,7 @@ Get started with these commands:
 ---
 
 ## :books: License
-This project is licensed under the [LICENSE-CODE](LICENSE-CODE). See the repository for more details.
+This project is licensed under the [GNU GPL v3 License](LICENSE). See the repository for more details.
 
 ---
 
