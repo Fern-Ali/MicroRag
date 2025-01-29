@@ -10,6 +10,8 @@ import tempfile
 from sentence_transformers import SentenceTransformer
 import faiss
 import PyPDF2
+import tempfile
+from scraper_methods import save_markdown_to_file, scrape_webpage
 
 # Intents and Bot Setup
 intents = discord.Intents.default()
@@ -22,13 +24,8 @@ embedding_dim = embedding_model.get_sentence_embedding_dimension()
 index = faiss.IndexFlatL2(embedding_dim)  # FAISS index for embeddings
 user_contexts = {}  # Store user-specific chunks
 
-# Function map for dynamic function calling
-def calculate_sum(a, b):
-    return a + b
 
-function_map = {
-    "calculate_sum": calculate_sum,
-}
+
 
 # Event: Bot Ready
 @bot.event
@@ -199,6 +196,27 @@ async def summarize(ctx):
         await ctx.send(f"**Summary:**\n{extract_answer(generated_summary)}")
         await ctx.send(f"API Request took {end_time - start_time:.2f} seconds.")
 
+@bot.command()
+async def scrape(ctx, *, user_query: str):
+    if user_query.startswith("http"):  # Detects a URL
+        async with ctx.typing():
+            markdown_result, preview = scrape_webpage(user_query)
+            print(markdown_result, preview)
+            if not preview:
+                await ctx.send("Error scraping the webpage.")
+                return
+            
+            file_path = save_markdown_to_file(markdown_result)
+            
+            # Send response with preview and file
+            await ctx.send(f"**📄 Extracted Content from {user_query}**\n\n"
+                           f"📝 *Preview:* `{preview}...`\n"
+                           f"📂 Full content attached ⬇️")
+            
+            await ctx.send(file=discord.File(file_path))  # Upload .md file
+    else:
+        await ctx.send("Invalid input. Please provide a valid URL.")
+
 
 @bot.command()
 async def function(ctx, *, user_query: str):
@@ -355,6 +373,9 @@ def scrape_github_trending(since="daily"):
         return trending_repos
     except Exception as e:
         return f"Error occurred: {str(e)}"
+
+def calculate_sum(a, b):
+    return a + b
 
 # Load environment variables and run the bot
 load_dotenv()
