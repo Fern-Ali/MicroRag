@@ -74,6 +74,12 @@ python kitty_bot.py
 - **`!summarize`**:
   Upload a `.txt` file to receive a concise summary (2000 chars max).
   - Example: Upload a file with `!summarize`.
+- **`!scrape [URL]`**:
+  Provide url | MicroRag extracts the webpage and returns it as a formatted Markdown file.
+  - Example: `!scrape https://example.com`  
+
+- Provides a **preview** of the extracted content.  
+- Attaches the full Markdown file for download.  
 - **`!function [query]`**:
   Dynamically execute Python functions via JSON requests.
   - Example: `!function What is 5 plus 7?`
