@@ -76,7 +76,12 @@ python kitty_bot.py
 - **`!summarize`**  
   Upload a `.txt` or `.pdf` file to receive a concise summary (2000 chars max).  
   - Example: Upload a file with `!summarize`.
-
+    
+- **`!search [query]`**  
+  Performs a **web search** using DuckDuckGo and returns the top results.  
+  - Example: `!search latest AI research papers`  
+  - Returns **search results** directly in Discord.
+    
 - **`!scrape [URL]`**  
   Provide a URL, and MicroRag extracts the webpage, returning it as a formatted Markdown file.  
   - Example: `!scrape https://example.com`
@@ -134,13 +139,17 @@ These commands allow for **document retrieval and LLM-powered responses**.
 1. **RAG-Powered Commands** 🧠  
    - **`!rag`**: Upload and index documents into Qdrant.  
    - **`!rag_query`**: Retrieve relevant **document chunks** from Qdrant.  
-   - **`!query`**: Query the **LLM directly**, skipping document retrieval.  
+   - **`!query`**: Query the **LLM directly**, skipping document retrieval.
+     
+2. **New Web Features 🌐**  
+   - **`!scrape`**: Extracts content from a given webpage and returns it as a formatted Markdown file.  
+   - **`!search`**: Performs a web search using DuckDuckGo and returns the top results.  
 
-2. **Improved Message Formatting**  
+3. **Improved Message Formatting**  
    - **`!rag_query` & `!query`** create **Discord threads** for better organization.  
    - **Long responses are split into multiple messages** (labeled **Part 1, Part 2, etc.**).  
 
-3. **Better UX** 🚀  
+4. **Better UX** 🚀  
    - **Bot now shows "typing..."** while processing `!query` requests.  
    - Improved error handling & response formatting.  
 
