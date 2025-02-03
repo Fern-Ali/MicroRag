@@ -11,7 +11,7 @@ from sentence_transformers import SentenceTransformer
 import faiss
 import PyPDF2
 import tempfile
-from scraper_methods import save_markdown_to_file, scrape_webpage
+from scraper_methods import save_markdown_to_file, scrape_webpage, search_duckduckgo_async
 
 # Intents and Bot Setup
 intents = discord.Intents.default()
@@ -19,10 +19,10 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Load SentenceTransformer Model and Initialize FAISS Index
-embedding_model = SentenceTransformer("all-MiniLM-L6-v2")  # Lightweight embedding model
-embedding_dim = embedding_model.get_sentence_embedding_dimension()
-index = faiss.IndexFlatL2(embedding_dim)  # FAISS index for embeddings
-user_contexts = {}  # Store user-specific chunks
+# embedding_model = SentenceTransformer("all-MiniLM-L6-v2")  # Lightweight embedding model
+# embedding_dim = embedding_model.get_sentence_embedding_dimension()
+# index = faiss.IndexFlatL2(embedding_dim)  # FAISS index for embeddings
+# user_contexts = {}  # Store user-specific chunks
 
 
 
@@ -83,78 +83,151 @@ async def prompt(ctx, *, prompt_text: str):
     end_time = time.time()
     await ctx.send(f"API Request took {end_time - start_time:.2f} seconds.")
 
-
-# Command: !context
 @bot.command()
-async def context(ctx):
+async def rag(ctx):
     """
-    Handles file uploads and creates embeddings for user-specific contexts.
+    Uploads a document to Django's backend, triggering the RAG pipeline.
     """
     if not ctx.message.attachments:
-        await ctx.send("Please upload a file with this command!")
+        await ctx.send("📄 Please attach a document to use this command.")
         return
 
     attachment = ctx.message.attachments[0]
     file_ext = attachment.filename.split(".")[-1].lower()
 
-    if file_ext not in ["pdf", "txt"]:
-        await ctx.send("Unsupported file type. Please upload a PDF or TXT file.")
+    # Supported file types
+    if file_ext not in ["pdf", "py", "ipynb", "xlsx", "xls", "txt"]:
+        await ctx.send("❌ Unsupported file type. Please upload a PDF, Python file, Jupyter Notebook, Excel file, or a text file.")
         return
 
+    # Save the file temporarily
     with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_ext}") as temp_file:
         await attachment.save(temp_file.name)
 
-        if file_ext == "pdf":
-            text = extract_text_from_pdf(temp_file.name)
-        elif file_ext == "txt":
-            with open(temp_file.name, "r", encoding="utf-8") as f:
-                text = f.read()
+    # Prepare the request payload
+    files = {"file": open(temp_file.name, "rb")}
+    url = "http://localhost:8000/api/upload-document/"  # Django backend upload endpoint
 
-        chunks = split_into_chunks(text, chunk_size=100)
-        embeddings = embedding_model.encode(chunks, show_progress_bar=True)
+    # Send the file to Django
+    try:
+        async with ctx.typing():
+            response = requests.post(url, files=files)
+            os.remove(temp_file.name)  # Cleanup temp file
 
-        for i, embedding in enumerate(embeddings):
-            index.add(embedding.reshape(1, -1))
-            user_contexts[f"{ctx.author.id}_{i}"] = chunks[i]
-    print(f"FAISS index contains {index.ntotal} vectors.")
-    await ctx.send("Your document has been indexed and is ready for queries!")
+            if response.status_code == 200:
+                result = response.json()
+                print(f"✅ **Upload Successful!**\n📄 **Processed Chunks:** {result.get('chunks', 'Unknown')}\n🔄 Your document is now being indexed for retrieval.")
+                await ctx.send(f"✅ **Upload Successful!**\n📄 **Processed Chunks:** {len(result.get('chunks', 'Unknown'))}\n🔄 Your document is now being indexed for retrieval.")
+            else:
+                await ctx.send(f"❌ **Upload Failed!**\n🔍 Error: {response.text}")
 
-# Command: !query
+    except Exception as e:
+        await ctx.send(f"⚠️ Error: {e}")
+
+@bot.command()
+async def rag_query(ctx, *, user_query: str):
+    """
+    Queries the stored documents in Qdrant and returns relevant text chunks in a dedicated thread.
+    If a chunk exceeds 1900 characters, it is split into multiple messages labeled as Part 1, Part 2, etc.
+    """
+    formatted_query = user_query.replace(" ", "_")
+    url = f"http://127.0.0.1:8003/query?query={formatted_query}&limit=5"
+
+    response = requests.get(url)
+
+    if response.status_code != 200:
+        await ctx.send("❌ Error querying the document database.")
+        return
+
+    results = response.json()
+
+    if not results:
+        await ctx.send("❌ No relevant documents found.")
+        return
+
+    # Create a thread to display the query results
+    thread = await ctx.channel.create_thread(
+        name=f"📖 RAG Query: {user_query[:50]}",
+        message=ctx.message,
+        auto_archive_duration=60
+    )
+
+    # Send each retrieved chunk in the thread
+    for i, result in enumerate(results):
+        chunk_text = result['text']
+        metadata = result['metadata']['filename']
+        score = result['score']
+
+        if len(chunk_text) <= 1900:
+            # If the chunk is short enough, send it as a single message
+            formatted_result = (
+                f"**📌 Match {i+1}:**\n"
+                f"🔹 *{chunk_text}*\n"
+                f"📝 **Source:** {metadata} (Score: {score:.4f})"
+            )
+            await thread.send(formatted_result)
+        else:
+            # If the chunk is too long, split it into multiple messages
+            parts = [chunk_text[i:i+1900] for i in range(0, len(chunk_text), 1900)]
+            for part_num, part in enumerate(parts, start=1):
+                part_label = f"**📌 Match {i+1}, Part {part_num}:**" if len(parts) > 1 else f"**📌 Match {i+1}:**"
+                formatted_result = (
+                    f"{part_label}\n"
+                    f"🔹 *{part}*"
+                )
+                await thread.send(formatted_result)
+
+            # After the last part, attach metadata information
+            await thread.send(f"📝 **Source:** {metadata} (Score: {score:.4f})")
+
+    await thread.send("✅ **All relevant document chunks have been posted.**")
+
 @bot.command()
 async def query(ctx, *, user_query: str):
     """
-    Handles queries based on uploaded user context.
+    Requests /query_llm for just the response without document retrieval.
+    The bot will indicate that it's typing while waiting for a response.
     """
-    if index.ntotal == 0:
-        await ctx.send("No context available. Please upload a document first using `!context`.")
-        return
+    formatted_query = user_query.replace(" ", "_")
+    url = f"http://127.0.0.1:8003/query_llm?query={formatted_query}"
 
-    # Embed the user query
-    query_embedding = embedding_model.encode([user_query])
-    distances, indices = index.search(query_embedding, k=3)  # Retrieve top 3 chunks
-    print("Distances:", distances)
-    print("Indices:", indices)
+    async with ctx.typing():  # Show "Kitty is typing..." while processing
+        response = requests.get(url)
 
-    # Retrieve the most relevant chunks
-    relevant_chunks = [
-        user_contexts.get(f"{ctx.author.id}_{idx}", "")
-        for idx in indices[0] if f"{ctx.author.id}_{idx}" in user_contexts
-    ]
-    print("Relevant Chunks Retrieved:", relevant_chunks)
+        if response.status_code != 200:
+            await ctx.send("❌ Error querying the database.")
+            return
 
-    # Use the top chunks as context
-    context = "\n\n".join(relevant_chunks[:2])  # Use top 2 chunks
+        data = response.json()
+        if "error" in data:
+            await ctx.send(f"❌ {data['error']}")
+            return
 
-    if not context.strip():  # Ensure context isn't empty
-        await ctx.send("No relevant context found for your query.")
-        return
+        llm_response = data.get("llm_response", "No response found.")
 
-    # Send request to FastAPI for generation
-    start_time = time.time()
-    generated_text = await generate_with_api(user_query, context=context, max_length=300)
-    await ctx.send(f"**Query:** {user_query}\n\n**Response:**\n{generated_text}")
-    end_time = time.time()
-    await ctx.send(f"API Request took {end_time - start_time:.2f} seconds.")
+    # Create a thread for clean organization
+    thread = await ctx.channel.create_thread(
+        name=f"Query: {user_query[:50]}",
+        message=ctx.message,
+        auto_archive_duration=60
+    )
+
+    # Send response in thread
+    if len(llm_response) > 2000:
+        chunks = [llm_response[i:i+2000] for i in range(0, len(llm_response), 2000)]
+        for chunk in chunks:
+            await thread.send(chunk)
+    else:
+        await thread.send(f"**Response:**\n{llm_response}")
+
+    if len(llm_response) > 6000:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".txt") as temp_file:
+            temp_file.write(llm_response.encode("utf-8"))
+            temp_file_path = temp_file.name
+
+        await thread.send("📂 The response is too long. Here's a file instead:", file=discord.File(temp_file_path))
+
+
 
 @bot.command()
 async def summarize(ctx):
@@ -217,6 +290,12 @@ async def scrape(ctx, *, user_query: str):
     else:
         await ctx.send("Invalid input. Please provide a valid URL.")
 
+@bot.command()
+async def search(ctx, *, query: str):
+    """Performs a web search using DuckDuckGo."""
+    async with ctx.typing():
+        results = await search_duckduckgo_async(query)
+        await ctx.send(f"**🔍 Search Results for:** `{query}`\n\n{results}")
 
 @bot.command()
 async def function(ctx, *, user_query: str):

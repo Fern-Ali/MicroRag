@@ -71,3 +71,32 @@ def extract_tables(soup):
         markdown_tables.append("\n".join(table_markdown))
 
     return "\n\n".join(markdown_tables) if markdown_tables else "No tables found."
+
+import aiohttp
+from bs4 import BeautifulSoup
+import urllib.parse
+
+async def search_duckduckgo_async(query):
+    url = f"https://html.duckduckgo.com/html/?q={query}"
+    headers = {"User-Agent": "Mozilla/5.0"}
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, headers=headers) as response:
+            html = await response.text()
+
+    soup = BeautifulSoup(html, "html.parser")
+    results = []
+
+    for result in soup.find_all("a", class_="result__a", limit=5):  # Top 5 results
+        title = result.get_text().strip()
+        redirect_url = result["href"]
+        
+        # Extract the real URL
+        parsed_url = urllib.parse.parse_qs(urllib.parse.urlparse(redirect_url).query).get("uddg", [""])[0]
+
+        # Format results
+        results.append(f"**[{title}]({parsed_url})**")
+
+    return "\n".join(results) if results else "No results found."
+
+

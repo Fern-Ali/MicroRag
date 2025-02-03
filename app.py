@@ -86,7 +86,13 @@ async def generate(request: InferenceRequest):
         
         # Handle cases where context is optional
         if request.context:
-            prompt = f"Context: {request.context}\n\nQuery: {request.query}\nAnswer:"
+            # prompt = f"Context: {request.context}\n\nQuery: {request.query}\nAnswer:"
+            prompt = (
+                f"Use the following retrieved context to answer the query.\n\n"
+                f"### Context:\n{request.context}\n\n"
+                f"### Query:\n{request.query}\n\n"
+                f"### Answer:"
+            )
         else:
             prompt = f"Query: {request.query}\nAnswer:"
         
@@ -97,8 +103,16 @@ async def generate(request: InferenceRequest):
             # max_new_tokens=request.max_length
             num_return_sequences=1
         )
+        generated_text = response[0]["generated_text"]
         
-        return {"response": response[0]["generated_text"]}
+        # Extract text after "Answer:"
+        if "Answer:" in generated_text:
+            generated_answer = generated_text.split("Answer:", 1)[-1].strip()
+        else:
+            generated_answer = generated_text.strip()
+            
+        return {"response": generated_answer}
+        # return {"response": response[0]["generated_text"]}
     except Exception as e:
         # Log the error and return a clear message
         print(f"Error: {e}")
