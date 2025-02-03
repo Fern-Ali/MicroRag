@@ -7,8 +7,9 @@ MicroRag is a lightweight FastAPI-based system for inferencing Large Language Mo
 
 ---
 
-## 📌 Quick Links  
-🔹 [**Agent Kitty Commands**](#speech_balloon-agent-kitty-commands)  
+# 📌 Quick Links  
+🔹 [**Core Commands**](#sparkles-core-commands)  
+🔹 [**RAG Commands**](#sparkles-rag-commands)  
 🔹 [**Agent Kitty Patch Notes**](#loudspeaker-agent-kitty-patch-notes)  
 🔹 [**Installation Guide**](#wrench-installation--setup)  
 🔹 [**Contribute & Feature Ideas**](#bulb-contribute)  
@@ -68,45 +69,82 @@ python kitty_bot.py
 ## :speech_balloon: Agent Kitty Commands
 
 ### :sparkles: Core Commands
-- **`!prompt [query]`**:
-  Send a query to the MicroRag API and receive a concise answer.
+- **`!prompt [query]`**  
+  Send a query to the MicroRag API and receive a concise answer.  
   - Example: `!prompt What is FastAPI?`
-- **`!summarize`**:
-  Upload a `.txt` file to receive a concise summary (2000 chars max).
-  - Example: Upload a file with `!summarize`.
-- **`!scrape [URL]`**:
-  Provide url | MicroRag extracts the webpage and returns it as a formatted Markdown file.
-  - Example: `!scrape https://example.com`  
 
-- Provides a **preview** of the extracted content.  
-- Attaches the full Markdown file for download.  
-- **`!function [query]`**:
-  Dynamically execute Python functions via JSON requests.
-  - Example: `!function What is 5 plus 7?`
-  - Currently supports:
-    - 🆕 `calculate_sum` | Adds two numbers      
-      - **Example Queries:**
-        - `"Add 400 + 800"` → `Result: 1200`        
-    - 🆕 `scrape_github_trending` | Fetches the top trending repositories from GitHub.        
-      - Supports different time ranges:
-        - `"daily"` (default)
-        - `"weekly"`
-        - `"monthly"`
-      - **Example Queries:**
-        - `"What are today's trending GitHub repos?"` → `since: "daily"`
-        - `"Show me the trending GitHub repos for this week."` → `since: "weekly"`
-        - `"What are the top GitHub projects this month?"` → `since: "monthly"`
+- **`!summarize`**  
+  Upload a `.txt` or `.pdf` file to receive a concise summary (2000 chars max).  
+  - Example: Upload a file with `!summarize`.
+
+- **`!scrape [URL]`**  
+  Provide a URL, and MicroRag extracts the webpage, returning it as a formatted Markdown file.  
+  - Example: `!scrape https://example.com`
+  - Provides a **preview** of the extracted content.  
+  - Attaches the full Markdown file for download.  
+
+- **`!function [query]`**  
+  Dynamically execute Python functions via JSON requests.  
+  - Example: `!function What is 5 plus 7?`  
+  - Currently supports:  
+    - 🆕 `calculate_sum` | Adds two numbers  
+      - **Example Queries:**  
+        - `"Add 400 + 800"` → `Result: 1200`  
+    - 🆕 `scrape_github_trending` | Fetches the top trending repositories from GitHub.  
+      - Supports different time ranges:  
+        - `"daily"` (default)  
+        - `"weekly"`  
+        - `"monthly"`  
+      - **Example Queries:**  
+        - `"What are today's trending GitHub repos?"` → `since: "daily"`  
+        - `"Show me the trending GitHub repos for this week."` → `since: "weekly"`  
+        - `"What are the top GitHub projects this month?"` → `since: "monthly"`  
 ### 🚀 Function calling in action:  
 ```plaintext
 !function show me trending GitHub repos 
 ```
+---
+### :sparkles: RAG Commands  
+These commands allow for **document retrieval and LLM-powered responses**.
+
+- **`!rag`**  
+  Uploads a document to Django’s backend, triggering the **RAG pipeline** for indexing.  
+  - **Supported Formats:** `.pdf`, `.py`, `.ipynb`, `.xlsx`, `.xls`, `.txt`  
+  - **Example:** Attach a file and type `!rag`
+
+- **`!rag_query [query]`**  
+  Searches stored documents in **Qdrant** and returns **relevant text chunks**.  
+  - **Example:** `!rag_query How does alpha-beta pruning selection work?`  
+  - Creates a dedicated **Discord thread** for responses.  
+  - Splits long chunks into multiple messages, labeled **Part 1, Part 2, etc.**  
+
+- **`!query [query]`**  
+  Sends the query to the **LLM directly** after retrieving documents Qdrant and passing them as context.  
+  - **Example:** `!query Explain reinforcement learning`  
+  - The bot **indicates typing** while processing the request.  
+  - Creates a **Discord thread** for responses.  
+
 ---
 
 ## :loudspeaker: Agent Kitty Patch Notes
 
 ### **Version Update: New Features & Improvements**
 
-#### :sparkles: What’s New
+#### :sparkles: What’s New | 2/3/2025
+1. **RAG-Powered Commands** 🧠  
+   - **`!rag`**: Upload and index documents into Qdrant.  
+   - **`!rag_query`**: Retrieve relevant **document chunks** from Qdrant.  
+   - **`!query`**: Query the **LLM directly**, skipping document retrieval.  
+
+2. **Improved Message Formatting**  
+   - **`!rag_query` & `!query`** create **Discord threads** for better organization.  
+   - **Long responses are split into multiple messages** (labeled **Part 1, Part 2, etc.**).  
+
+3. **Better UX** 🚀  
+   - **Bot now shows "typing..."** while processing `!query` requests.  
+   - Improved error handling & response formatting.  
+
+#### :sparkles: What’s New | 1/30/2025
 1. **`!prompt` Revamped**:
    - Returns only the **answer** for a smoother user experience.
 
